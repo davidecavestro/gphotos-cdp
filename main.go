@@ -50,6 +50,7 @@ var (
 	runFlag      = flag.String("run", "", "the program to run on each downloaded item, right after it is dowloaded. It is also the responsibility of that program to remove the downloaded item, if desired.")
 	verboseFlag  = flag.Bool("v", false, "be verbose")
 	headlessFlag = flag.Bool("headless", false, "Start chrome browser in headless mode (cannot do authentication this way).")
+	dlTimeout    = flag.Int("dltimeout", 1, "timeout for single download.")
 )
 
 var tick = 500 * time.Millisecond
@@ -171,7 +172,7 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	s.parentContext = ctx
 	s.parentCancel = cancel
-	ctx, cancel = chromedp.NewContext(s.parentContext)
+	ctx, cancel = chromedp.NewContext(s.parentContext, chromedp.WithLogf(log.Printf), chromedp.WithDebugf(log.Printf))
 	return ctx, cancel
 }
 
@@ -231,11 +232,11 @@ func (s *Session) login(ctx context.Context) error {
 				if location == "https://photos.google.com/" {
 					return nil
 				}
-				if *headlessFlag {
-					return errors.New("authentication not possible in -headless mode")
-				}
 				if *verboseFlag {
 					log.Printf("Not yet authenticated, at: %v", location)
+				}
+				if *headlessFlag {
+					return errors.New("authentication not possible in -headless mode")
 				}
 				time.Sleep(tick)
 			}
@@ -499,7 +500,8 @@ func startDownload(ctx context.Context) error {
 
 // dowload starts the download of the currently viewed item, and on successful
 // completion saves its location as the most recent item downloaded. It returns
-// with an error if the download stops making any progress for more than a minute.
+// with an error if the download stops making any progress for more than dlTimeout
+// minutes.
 func (s *Session) download(ctx context.Context, location string) (string, error) {
 
 	if err := startDownload(ctx); err != nil {
@@ -509,7 +511,7 @@ func (s *Session) download(ctx context.Context, location string) (string, error)
 	var filename string
 	started := false
 	var fileSize int64
-	deadline := time.Now().Add(time.Minute)
+	deadline := time.Now().Add(time.Duration(*dlTimeout) * time.Minute)
 	for {
 		time.Sleep(tick)
 		if !started && time.Now().After(deadline) {

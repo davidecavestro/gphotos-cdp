@@ -503,7 +503,6 @@ func startDownload(ctx context.Context) error {
 // with an error if the download stops making any progress for more than dlTimeout
 // minutes.
 func (s *Session) download(ctx context.Context, location string) (string, error) {
-
 	if err := startDownload(ctx); err != nil {
 		return "", err
 	}

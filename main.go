@@ -172,7 +172,12 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	s.parentContext = ctx
 	s.parentCancel = cancel
-	ctx, cancel = chromedp.NewContext(s.parentContext, chromedp.WithLogf(log.Printf), chromedp.WithDebugf(log.Printf))
+	if *verboseFlag {
+		log.Printf("Using verbose context")
+		ctx, cancel = chromedp.NewContext(s.parentContext, chromedp.WithLogf(log.Printf), chromedp.WithDebugf(log.Printf))
+	} else {
+		ctx, cancel = chromedp.NewContext(s.parentContext)
+	}
 	return ctx, cancel
 }
 

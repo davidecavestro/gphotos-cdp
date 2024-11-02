@@ -49,6 +49,7 @@ var (
 	startFlag    = flag.String("start", "", "skip all photos until this location is reached. for debugging.")
 	runFlag      = flag.String("run", "", "the program to run on each downloaded item, right after it is dowloaded. It is also the responsibility of that program to remove the downloaded item, if desired.")
 	verboseFlag  = flag.Bool("v", false, "be verbose")
+	pedanticFlag = flag.Bool("x", false, "be pedantically verbose")
 	headlessFlag = flag.Bool("headless", false, "Start chrome browser in headless mode (cannot do authentication this way).")
 	dlTimeout    = flag.Int("dltimeout", 1, "timeout for single download.")
 )
@@ -181,8 +182,8 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	s.parentContext = ctx
 	s.parentCancel = cancel
-	if *verboseFlag {
-		log.Printf("Using verbose context")
+	if *pedanticFlag {
+		log.Printf("Using pedantically verbose context")
 		ctx, cancel = chromedp.NewContext(s.parentContext, chromedp.WithLogf(log.Printf), chromedp.WithDebugf(log.Printf))
 	} else {
 		ctx, cancel = chromedp.NewContext(s.parentContext)

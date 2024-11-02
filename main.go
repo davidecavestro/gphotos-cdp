@@ -52,6 +52,7 @@ var (
 	pedanticFlag = flag.Bool("x", false, "be pedantically verbose")
 	headlessFlag = flag.Bool("headless", false, "Start chrome browser in headless mode (cannot do authentication this way).")
 	dlTimeout    = flag.Int("dltimeout", 1, "timeout for single download.")
+	rmtUrlFlag   = flag.String("remote", "", "Url of remote browser to control.")
 )
 
 var tick = 500 * time.Millisecond
@@ -179,7 +180,13 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 		// undo DisableGPU from above
 		opts = append(opts, chromedp.Flag("disable-gpu", false))
 	}
-	ctx, cancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if *rmtUrlFlag == "" {
+		ctx, cancel = chromedp.NewRemoteAllocator(context.Background(), *rmtUrlFlag)
+	} else {
+		ctx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
+	}
 	s.parentContext = ctx
 	s.parentCancel = cancel
 	if *pedanticFlag {

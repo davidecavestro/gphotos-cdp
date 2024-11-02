@@ -108,9 +108,16 @@ type Session struct {
 	firstItem string
 }
 
+func logVerbose(msg string) {
+	if *verboseFlag {
+		log.Printf(msg)
+	}
+}
+
 // getLastDone returns the URL of the most recent item that was downloaded in
 // the previous run. If any, it should have been stored in dlDir/.lastdone
 func getLastDone(dlDir string) (string, error) {
+	logVerbose("Getting the savepoint")
 	data, err := ioutil.ReadFile(filepath.Join(dlDir, ".lastdone"))
 	if os.IsNotExist(err) {
 		return "", nil
@@ -122,6 +129,7 @@ func getLastDone(dlDir string) (string, error) {
 }
 
 func NewSession() (*Session, error) {
+	logVerbose("Creating new session")
 	var dir string
 	if *devFlag {
 		dir = filepath.Join(os.TempDir(), "gphotos-cdp")
@@ -155,6 +163,7 @@ func NewSession() (*Session, error) {
 }
 
 func (s *Session) NewContext() (context.Context, context.CancelFunc) {
+	logVerbose("Creating new context")
 	// Let's use as a base for allocator options (It implies Headless)
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.DisableGPU,
@@ -182,11 +191,13 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 }
 
 func (s *Session) Shutdown() {
+	logVerbose("Shutting down")
 	s.parentCancel()
 }
 
 // cleanDlDir removes all files (but not directories) from s.dlDir
 func (s *Session) cleanDlDir() error {
+	logVerbose("Cleaning the download dir")
 	if s.dlDir == "" {
 		return nil
 	}
@@ -211,6 +222,7 @@ func (s *Session) cleanDlDir() error {
 // login navigates to https://photos.google.com/ and waits for the user to have
 // authenticated (or for 2 minutes to have elapsed).
 func (s *Session) login(ctx context.Context) error {
+	logVerbose("CHecking for login need")
 	return chromedp.Run(ctx,
 		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).WithDownloadPath(s.dlDir),
 		chromedp.ActionFunc(func(ctx context.Context) error {
@@ -225,6 +237,7 @@ func (s *Session) login(ctx context.Context) error {
 		// authenticated.
 		chromedp.ActionFunc(func(ctx context.Context) error {
 			tick := time.Second
+			logVerbose("Waiting max 2 minutes")
 			timeout := time.Now().Add(2 * time.Minute)
 			var location string
 			for {
@@ -261,17 +274,21 @@ func (s *Session) login(ctx context.Context) error {
 // 2) if the last session marked what was the most recent downloaded photo, it navigates to it
 // 3) otherwise it jumps to the end of the timeline (i.e. the oldest photo)
 func (s *Session) firstNav(ctx context.Context) error {
+	logVerbose("Looking for the starting point")
+
 	if err := s.setFirstItem(ctx); err != nil {
 		return err
 	}
 
 	if *startFlag != "" {
+		logVerbose("Using startFlag")
 		// TODO(mpl): use RunResponse
 		chromedp.Navigate(*startFlag).Do(ctx)
 		chromedp.WaitReady("body", chromedp.ByQuery).Do(ctx)
 		return nil
 	}
 	if s.lastDone != "" {
+		logVerbose("Using lastDone")
 		resp, err := chromedp.RunResponse(ctx, chromedp.Navigate(s.lastDone))
 		if err != nil {
 			return err
@@ -290,6 +307,7 @@ func (s *Session) firstNav(ctx context.Context) error {
 			return err
 		}
 
+		logVerbose("Starting from scratch")
 		// restart from scratch
 		resp, err = chromedp.RunResponse(ctx, chromedp.Navigate("https://photos.google.com/"))
 		if err != nil {
@@ -318,6 +336,7 @@ func (s *Session) firstNav(ctx context.Context) error {
 // because we also run it for the side-effect of waiting for the first page load to
 // be done, and to be ready to receive scroll key events.
 func (s *Session) setFirstItem(ctx context.Context) error {
+	logVerbose("Looking for the 1st page to be loaded")
 	// wait for page to be loaded, i.e. that we can make an element active by using
 	// the right arrow key.
 	for {
@@ -350,6 +369,7 @@ func (s *Session) setFirstItem(ctx context.Context) error {
 
 // navToEnd scrolls down to the end of the page, i.e. to the oldest items.
 func navToEnd(ctx context.Context) error {
+	logVerbose("Scrolling down to the end of the page")
 	// try jumping to the end of the page. detect we are there and have stopped
 	// moving when two consecutive screenshots are identical.
 	var previousScr, scr []byte
@@ -379,6 +399,7 @@ func navToEnd(ctx context.Context) error {
 // new page. It then sends the right arrow key event until we've reached the very
 // last item.
 func navToLast(ctx context.Context) error {
+	logVerbose("Navigating to last item")
 	var location, prevLocation string
 	ready := false
 	for {
@@ -423,6 +444,7 @@ func doRun(filePath string) error {
 
 // navLeft navigates to the next item to the left
 func navLeft(ctx context.Context) error {
+	logVerbose("Navigating to the next item to the left")
 	muNavWaiting.Lock()
 	listenEvents = true
 	muNavWaiting.Unlock()
@@ -473,6 +495,7 @@ func markDone(dldir, location string) error {
 // startDownload sends the Shift+D event, to start the download of the currently
 // viewed item.
 func startDownload(ctx context.Context) error {
+	logVerbose("Triggering download")
 	keyD, ok := kb.Keys['D']
 	if !ok {
 		return errors.New("no D key")
@@ -508,6 +531,7 @@ func startDownload(ctx context.Context) error {
 // with an error if the download stops making any progress for more than dlTimeout
 // minutes.
 func (s *Session) download(ctx context.Context, location string) (string, error) {
+	logVerbose("Going to download...")
 	if err := startDownload(ctx); err != nil {
 		return "", err
 	}
@@ -578,6 +602,7 @@ func (s *Session) download(ctx context.Context, location string) (string, error)
 // location. It then moves dlFile in that directory. It returns the new path
 // of the moved file.
 func (s *Session) moveDownload(ctx context.Context, dlFile, location string) (string, error) {
+	logVerbose("Storing downloaded file")
 	parts := strings.Split(location, "/")
 	if len(parts) < 5 {
 		return "", fmt.Errorf("not enough slash separated parts in location %v: %d", location, len(parts))
@@ -647,6 +672,7 @@ func (s *Session) navN(N int) func(context.Context) error {
 
 		var location, prevLocation string
 		for {
+			logVerbose("Downdload and look for next")
 			if err := chromedp.Location(&location).Do(ctx); err != nil {
 				return err
 			}

@@ -183,9 +183,11 @@ func (s *Session) NewContext() (context.Context, context.CancelFunc) {
 	var ctx context.Context
 	var cancel context.CancelFunc
 	if *rmtUrlFlag == "" {
-		ctx, cancel = chromedp.NewRemoteAllocator(context.Background(), *rmtUrlFlag)
-	} else {
+		logVerbose("Using embedded browser")
 		ctx, cancel = chromedp.NewExecAllocator(context.Background(), opts...)
+	} else {
+		logVerbose("Using remote browser: " + *rmtUrlFlag)
+		ctx, cancel = chromedp.NewRemoteAllocator(context.Background(), *rmtUrlFlag)
 	}
 	s.parentContext = ctx
 	s.parentCancel = cancel
@@ -230,7 +232,7 @@ func (s *Session) cleanDlDir() error {
 // login navigates to https://photos.google.com/ and waits for the user to have
 // authenticated (or for 2 minutes to have elapsed).
 func (s *Session) login(ctx context.Context) error {
-	logVerbose("CHecking for login need")
+	logVerbose("Checking for login need")
 	return chromedp.Run(ctx,
 		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).WithDownloadPath(s.dlDir),
 		chromedp.ActionFunc(func(ctx context.Context) error {

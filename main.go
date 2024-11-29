@@ -546,6 +546,7 @@ func (s *Session) download(ctx context.Context, location string) (string, error)
 		return "", err
 	}
 
+	logVerbose("Waiting for download completion...")
 	var filename string
 	started := false
 	var fileSize int64

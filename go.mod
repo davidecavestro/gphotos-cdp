@@ -3,7 +3,7 @@ module github.com/perkeep/gphotos-cdp
 go 1.23
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20241110205750-a72e6703cd9b
+	github.com/chromedp/cdproto v0.0.0-20241014181340-cb3a7a1d51d7
 	github.com/chromedp/chromedp v0.11.0
 )
 
